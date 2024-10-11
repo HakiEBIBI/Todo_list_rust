@@ -1,19 +1,31 @@
-use std::fs::OpenOptions;
-use std::io::{self, Write};
-fn main() {
-    let mut file = OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open("todo-list.txt")
-        .expect("unable to open the file");
+use std::fs;
+use std::fs::read_to_string;
+use std::io;
 
-    let mut input = String::new();
-
+fn main() -> std::io::Result<()> {
+    let mut todo = String::new();
+    println!("please give me your todo list : ");
     io::stdin()
-        .read_line(&mut input)
-        .expect("error: unable to read user input");
-    let input = input.trim();
+        .read_line(&mut todo)
+        .expect("can't read your line");
 
-    println!("i created a file with the name of todo-list");
-    writeln!(file, "{}", input).expect("err");
+    let todo = todo.trim();
+    //Open file.
+    let mut todos: Vec<String> = match read_to_string("todo_list.txt") {
+        Err(_) => Vec::new(),
+        Ok(todo_list) => todo_list.lines().map(String::from).collect(),
+    };
+
+    if todo.contains("--delete") {
+        let test = todo.split(" ").last();
+        let line_number: usize = test.expect("Err").parse().unwrap();
+
+        todos.remove(line_number - 1);
+    } else {
+        todos.push(todo.to_string());
+    }
+
+    fs::write("todo_list.txt", todos.join("\n")).expect("can't write to file!");
+
+    Ok(())
 }
