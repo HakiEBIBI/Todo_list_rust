@@ -1,104 +1,83 @@
 use chrono::NaiveDate;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
+use serde_json::{self};
 use std::fs::{self, read_to_string};
 use std::io::{self};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Ord, Eq, PartialOrd, PartialEq)]
 struct Todo {
     content: String,
-    completed: bool,
-    due_date: Option<NaiveDate>,
+    status: bool,
+    due: Option<NaiveDate>,
 }
-
-#[derive(Parser, Debug)]
-#[command(version = "0.1")]
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
 struct Flag {
-    #[arg(long, short)]
-    delete: Option<usize>,
-    #[arg(long)]
-    done: Option<usize>,
-    #[arg(long)]
-    undone: Option<usize>,
+    #[arg(long, short, default_value_t = 0)]
+    delete: usize,
+    #[arg(long, default_value_t = 0, short = 'D')]
+    done: usize,
+    #[arg(long, default_value_t = 0)]
+    undone: usize,
     #[arg(long)]
     due: Option<String>,
+    #[arg(long, default_value_t = 0)]
+    id: usize,
     #[arg(long)]
     list: bool,
-}
-
-fn list_todos(todos: &[Todo]) {
-    if todos.is_empty() {
-        println!("No todos found.");
-    } else {
-        for (index, todo) in todos.iter().enumerate() {
-            let status = if todo.completed { "Done" } else { "Undone" };
-            let due_date = todo.due_date.map_or("No due date".to_string(), |date| {
-                date.format("%Y-%m-%d").to_string()
-            });
-            println!(
-                "{}. {} - Status: {} - Due: {} - {}",
-                index + 1,
-                todo.content,
-                status,
-                due_date,
-                todo.content
-            );
-        }
-    }
+    #[arg(short, long)]
+    sort: bool,
 }
 
 fn main() -> std::io::Result<()> {
     let flags = Flag::parse();
 
     let mut todos: Vec<Todo> = match read_to_string("todo.json") {
-        Ok(file_content) => match serde_json::from_str(&file_content) {
-            Ok(todos) => todos,
-            Err(e) => {
-                eprintln!("Error deserializing JSON: {}", e);
-                Vec::new()
-            }
-        },
+        Ok(file_content) => serde_json::from_str(&file_content).expect("Cannot deseraliaze Json"),
         Err(_) => Vec::new(),
     };
-
-    if flags.list {
-        list_todos(&todos);
-    } else if let Some(number_line) = flags.delete {
-        if number_line > 0 && number_line <= todos.len() {
-            todos.remove(number_line - 1);
+    if flags.delete > 0 && flags.delete <= todos.len() {
+        todos.remove(flags.delete - 1);
+    } else if flags.done > 0 && flags.done <= todos.len() {
+        todos[flags.done - 1].status = true;
+    } else if flags.undone > 0 && flags.undone <= todos.len() {
+        todos[flags.undone - 1].status = false;
+    } else if let Some(due_date) = flags.due {
+        match NaiveDate::parse_from_str(&due_date, "%Y-%m-%d") {
+            Ok(date) => {
+                todos[flags.id - 1].due = Some(date);
+            }
+            Err(_) => {
+                println!("Invalid format, try again");
+            }
         }
-    } else if let Some(number_line) = flags.done {
-        if number_line > 0 && number_line <= todos.len() {
-            todos[number_line - 1].completed = true;
+    } else if flags.list {
+        for (i, list_todo) in todos.iter().enumerate() {
+            let status = if list_todo.status { "Done" } else { "Undone" };
+            println!("{}. {}, {}", i + 1, list_todo.content, status);
         }
-    } else if let Some(number_line) = flags.undone {
-        if number_line > 0 && number_line <= todos.len() {
-            todos[number_line - 1].completed = false;
-        }
+    } else if flags.sort {
+        todos.sort_by(|a, b| a.due.cmp(&b.due));
     } else {
         let mut user_input = String::new();
-        println!("Enter a to-do list item:");
+        println!("Enter a to-do list");
         io::stdin().read_line(&mut user_input)?;
-
         let user_input = user_input.trim();
-        if !user_input.is_empty() {
-            let due_date = flags
-                .due
-                .and_then(|date_str| NaiveDate::parse_from_str(&date_str, "%y-%m-%d").ok());
 
-            todos.push(Todo {
-                content: user_input.to_string(),
-                completed: false,
-                due_date,
-            });
-        }
+        let user_todo = Todo {
+            content: user_input.to_string(),
+            status: false,
+            due: None,
+        };
+        todos.push(user_todo);
     }
 
     fs::write(
         "todo.json",
-        serde_json::to_string(&todos).expect("Error serializing"),
+        serde_json::to_string_pretty(&todos).expect("err"),
     )
-    .expect("Can't write");
+    .expect("can't write");
 
     Ok(())
 }
