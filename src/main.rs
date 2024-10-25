@@ -16,6 +16,8 @@ struct Flag {
     delete: Option<usize>,
     #[arg(long)]
     done: Option<usize>,
+    #[arg(long)]
+    undone: Option<usize>,
 }
 
 fn main() -> std::io::Result<()> {
@@ -39,6 +41,10 @@ fn main() -> std::io::Result<()> {
     } else if let Some(number_line) = flags.done {
         if number_line > 0 && number_line <= todos.len() {
             todos[number_line - 1].completed = true;
+        }
+    } else if let Some(number_line) = flags.undone {
+        if number_line > 0 && number_line <= todos.len() {
+            todos[number_line - 1].completed = false;
         }
     } else {
         let mut user_input = String::new();
