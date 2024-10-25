@@ -22,6 +22,29 @@ struct Flag {
     undone: Option<usize>,
     #[arg(long)]
     due: Option<String>,
+    #[arg(long)]
+    list: bool,
+}
+
+fn list_todos(todos: &[Todo]) {
+    if todos.is_empty() {
+        println!("No todos found.");
+    } else {
+        for (index, todo) in todos.iter().enumerate() {
+            let status = if todo.completed { "Done" } else { "Undone" };
+            let due_date = todo.due_date.map_or("No due date".to_string(), |date| {
+                date.format("%Y-%m-%d").to_string()
+            });
+            println!(
+                "{}. {} - Status: {} - Due: {} - {}",
+                index + 1,
+                todo.content,
+                status,
+                due_date,
+                todo.content
+            );
+        }
+    }
 }
 
 fn main() -> std::io::Result<()> {
@@ -38,7 +61,9 @@ fn main() -> std::io::Result<()> {
         Err(_) => Vec::new(),
     };
 
-    if let Some(number_line) = flags.delete {
+    if flags.list {
+        list_todos(&todos);
+    } else if let Some(number_line) = flags.delete {
         if number_line > 0 && number_line <= todos.len() {
             todos.remove(number_line - 1);
         }
@@ -57,9 +82,9 @@ fn main() -> std::io::Result<()> {
 
         let user_input = user_input.trim();
         if !user_input.is_empty() {
-            let due_date = flags.due.and_then(|date_str| {
-                NaiveDate::parse_from_str(&date_str, "%y-%m-%d").ok()
-            });
+            let due_date = flags
+                .due
+                .and_then(|date_str| NaiveDate::parse_from_str(&date_str, "%y-%m-%d").ok());
 
             todos.push(Todo {
                 content: user_input.to_string(),
