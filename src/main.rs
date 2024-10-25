@@ -1,82 +1,46 @@
-use std::fs;
-use std::fs::read_to_string;
-// use std::fs::read_to_string;
-use std::io;
-// use serde::{Deserialize, Serialize};
-
-// #[derive(Serialize, Deserialize, Debug)]
-// struct Todo{
-//     content: String,
-// }
-
-// fn main() -> std::io::Result<()> {
-//     let mut todo = String::new();
-//      println!("please give me your todo list : ");
-//      io::stdin()
-//          .read_line(&mut todo)
-//          .expect("can't read your line");
-
-//      let todo = todo.trim();
-//       let mut todos: Vec<Todo> = match read_to_string("todo_list.txt") {
-//           Err(_) => Vec::new(),
-//           Ok(todo_list) => todo_list.lines().map(String::from).collect(),
-//       };
-
-//      if user_input.contains("--delete") {
-//          let test = user_input.split(" ").last();
-//          let line_number: usize = test.expect("Err").parse().expect("i cant execute the --delete");
-
-//         todos.remove(line_number - 1);
-//      } else {
-//         todos.push(user_input.to_string());
-//}
-
-//       let mut todos : Vec<Todo> = Vec::new();
-//     todos.push(todo);
-
-//    //write
-
-//    fs::write("todos.json", serde_json::to_string(&mut todos).expect("err")).expect("can't write");
-//      // fs::write("text.txt", todos.join("\n")).expect("can't write");
-
-//     Ok(())
-// }
-
+use clap::Parser;
 use serde::{Deserialize, Serialize};
+use std::fs::{self, read_to_string};
+use std::io::{self};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Todo {
     content: String,
 }
+#[derive(Parser, Debug)]
+#[command(version = "0.1")]
+struct Flag {
+    #[arg(long, short)]
+    delete: Option<usize>,
+}
+fn main() -> std::io::Result<()> {
+    let flags = Flag::parse();
 
-fn main() {
-    println!("please write a todo");
-    let mut user_input = String::new();
-    io::stdin()
-        .read_line(&mut user_input)
-        .expect("can't read your line");
-
-    let user_input = user_input.trim();
-
-    let mut todos: Vec<Todo> = match read_to_string("todos.json") {
+    let mut todos: Vec<Todo> = match read_to_string("todo.json") {
+        Ok(file_content) => serde_json::from_str(&file_content).expect("Cannot deseraliaze Json"),
         Err(_) => Vec::new(),
-        Ok(todos) => serde_json::from_str(&todos).expect("Cannot open the file"),
     };
 
-    if user_input.contains("--delete") {
-        let test = user_input.split(" ").last();
-        let line_number: usize = test
-            .expect("Err")
-            .parse()
-            .expect("i cant execute the --delete");
+    // delete flag
 
-        todos.remove(line_number - 1);
+    if let Some(number_line) = flags.delete {
+        if number_line > 0 && number_line <= todos.len() {
+            todos.remove(number_line - 1);
+        }
     } else {
-        todos.push(Todo {
-            content: user_input.to_string(),
-        });
+        let mut user_input = String::new();
+        println!("Enter a to-do list");
+        io::stdin().read_line(&mut user_input)?;
+
+        let user_input = user_input.trim();
+        if !user_input.is_empty() {
+            todos.push(Todo {
+                content: user_input.to_string(),
+            });
+        }
     }
 
-    fs::write("todos.json", serde_json::to_string(&todos).expect("err"))
-        .expect("can't write on the file");
+    fs::write("todo.json", serde_json::to_string(&todos).expect("err")).expect("can't write");
+
+    Ok(())
 }
