@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, read_to_string};
@@ -7,6 +8,7 @@ use std::io::{self};
 struct Todo {
     content: String,
     completed: bool,
+    due_date: Option<NaiveDate>,
 }
 
 #[derive(Parser, Debug)]
@@ -18,6 +20,8 @@ struct Flag {
     done: Option<usize>,
     #[arg(long)]
     undone: Option<usize>,
+    #[arg(long)]
+    due: Option<String>,
 }
 
 fn main() -> std::io::Result<()> {
@@ -53,9 +57,14 @@ fn main() -> std::io::Result<()> {
 
         let user_input = user_input.trim();
         if !user_input.is_empty() {
+            let due_date = flags.due.and_then(|date_str| {
+                NaiveDate::parse_from_str(&date_str, "%y-%m-%d").ok()
+            });
+
             todos.push(Todo {
                 content: user_input.to_string(),
                 completed: false,
+                due_date,
             });
         }
     }
